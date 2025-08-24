@@ -22,16 +22,19 @@ def ocr_space_parse_image(file_path, api_key, language='eng'):
         resp = requests.post(
             'https://api.ocr.space/parse/image',
             files={'file': f},
-            data={'apikey': api_key, 'language': language}
+            data={
+                'apikey': api_key,
+                'language': language,
+                'isOverlayRequired': 'false',
+                'OCREngine': '2'  # Use the newer engine
+            }
         )
     resp.raise_for_status()
     data = resp.json()
-    # Handle common error structures
     if data.get('IsErroredOnProcessing'):
-        err = data.get('ErrorMessage') or data.get('ErrorDetails')
-        raise RuntimeError(f"OCR.Space error: {err}")
-    parsed = data.get('ParsedResults', [{}])[0].get('ParsedText', '')
-    return (parsed or '').strip()
+        raise RuntimeError(f"OCR.Space error: {data.get('ErrorMessage')}")
+    return (data.get('ParsedResults', [{}])[0].get('ParsedText', '')).strip()
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
