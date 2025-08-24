@@ -18,7 +18,7 @@ OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
 
 # Google Apps Script Web App URL (set in Render → Environment)
 # This must be the deployed web app URL (Execute as: Me, Access: Anyone with the link)
-GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycby7BWctJ1HuX5vhwvnfD32N1KjKvuGlYSyoiQlVRK47tyh206Y0pYs7PIxv5EXq0NBC/exec").strip()
+GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbyTASvZfYljtHrOtQJziOlqGCqQHmUCcifX2efrK0NWlfYbU-TC98zyNbAcgZZVQjvb/exec").strip()
 
 # -----------------------------
 # Helpers
