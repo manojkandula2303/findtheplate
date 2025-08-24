@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, url_for
-from werkzeug.utils import secure_filename
 import os
 import base64
 import requests
+from flask import Flask, render_template, request, url_for
+from werkzeug.utils import secure_filename
 
 # -----------------------------
 # Config
@@ -13,12 +13,9 @@ UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "static/uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# OCR.Space API key (set in Render → Environment)
-OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
-
-# Google Apps Script Web App URL (set in Render → Environment)
-# This must be the deployed web app URL (Execute as: Me, Access: Anyone with the link)
-GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycby3Fm-stNZ3wAFMcLeIoNl89FPPCMJgAlg4AoQwaTJW_6Mwl9IUvUVbVXMBCjAsOruz/exec").strip()
+# Set these in your environment
+OCR_API_KEY = os.getenv("OCR_API_KEY", "").strip()
+GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "").strip()
 
 # -----------------------------
 # Helpers
@@ -26,12 +23,13 @@ GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/ma
 def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -> str:
     """
     Calls OCR.Space to parse text from an image file.
-    Returns the parsed text or raises an Exception on failure.
+    Returns the parsed text, or raises an Exception with details.
     """
     if not api_key:
-        raise RuntimeError("OCR API key not set. Please set OCR_API_KEY env var in Render.")
+        raise RuntimeError("OCR_API_KEY is not set.")
 
     with open(file_path, "rb") as f:
+        # IMPORTANT: OCR.Space expects multipart/form-data with fields in 'data', not JSON
         resp = requests.post(
             "https://api.ocr.space/parse/image",
             files={"file": f},
@@ -39,21 +37,19 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
                 "apikey": api_key,
                 "language": language,
                 "isOverlayRequired": "false",
-                "OCREngine": "2",  # newer engine
+                "OCREngine": "2",
             },
             timeout=90,
         )
 
+    # Will raise for 4xx/5xx (e.g., 403 if key invalid/quota exceeded)
     resp.raise_for_status()
     data = resp.json()
 
-    # If API indicates an error
     if data.get("IsErroredOnProcessing"):
-        # The API can return either a string or an array here
         err = data.get("ErrorMessage") or data.get("ErrorDetails") or "Unknown OCR error"
-        # Normalize list to string if needed
         if isinstance(err, list):
-            err = "; ".join([str(x) for x in err])
+            err = "; ".join(map(str, err))
         raise RuntimeError(f"OCR.Space error: {err}")
 
     parsed = (data.get("ParsedResults", [{}])[0].get("ParsedText") or "").strip()
@@ -61,25 +57,31 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
 
 
 def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
+    """
+    Sends base64 image + plate number to your Google Apps Script web app.
+    Expects the script to return JSON with { status: 'success', imageUrl, plateNumber }.
+    """
     if not GOOGLE_SCRIPT_URL:
-        raise RuntimeError("Google Script URL not set. Please set GOOGLE_SCRIPT_URL env var in Render.")
+        raise RuntimeError("GOOGLE_SCRIPT_URL is not set.")
 
     with open(image_path, "rb") as img_file:
         img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
 
     payload = {
-        "imageBase64": img_b64,       # FIXED
-        "plateNumber": plate_number   # FIXED
+        "imageBase64": img_b64,     # matches Apps Script
+        "plateNumber": plate_number # matches Apps Script
     }
 
     headers = {"Content-Type": "application/json"}
     resp = requests.post(GOOGLE_SCRIPT_URL, json=payload, headers=headers, timeout=90)
 
+    # Parse response as JSON if possible
     try:
         data = resp.json()
     except Exception:
         data = {"status": "error", "raw": resp.text}
 
+    # If HTTP not OK, surface error
     if not resp.ok:
         return {"status": "error", "error": f"HTTP {resp.status_code}", "raw": data}
 
@@ -93,8 +95,8 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
 def index():
     error_message = ""
     plate_number = ""
-    image_url = ""          # URL for <img> in the page
-    google_drive_url = ""   # File URL returned by Apps Script
+    image_url = ""
+    google_drive_url = ""
 
     if request.method == "POST":
         f = request.files.get("image")
@@ -108,12 +110,12 @@ def index():
                 google_drive_url=google_drive_url,
             )
 
-        # Save upload
+        # Save uploaded file
         filename = secure_filename(f.filename)
         saved_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         f.save(saved_path)
 
-        # Build a public URL for the static file (for display only)
+        # Public URL (served by Flask static)
         image_url = url_for("static", filename=f"uploads/{filename}")
 
         # --- OCR ---
@@ -128,15 +130,14 @@ def index():
         # --- Google Drive + Sheet ---
         try:
             result = send_to_google_drive_and_sheet(plate_number, saved_path)
-            if result.get("success"):
-                # Your script returns 'image_url' when successful
-                google_drive_url = result.get("image_url") or result.get("fileUrl") or ""
+            # Expecting { status: 'success', imageUrl, ... }
+            if result.get("status") == "success":
+                google_drive_url = result.get("imageUrl") or ""
             else:
-                # Combine script-side error with any earlier error
-                script_err = result.get("error") or result.get("raw") or "Unknown error from Apps Script"
-                error_message = f"{error_message} | Drive upload failed: {script_err}".strip(" |")
+                script_err = result.get("error") or result.get("message") or result.get("raw") or "Unknown error from Apps Script"
+                error_message = (error_message + (" | " if error_message else "") + f"Drive upload failed: {script_err}")
         except Exception as drive_err:
-            error_message = f"{error_message} | Drive upload failed: {drive_err}".strip(" |")
+            error_message = (error_message + (" | " if error_message else "") + f"Drive upload failed: {drive_err}")
 
     return render_template(
         "index.html",
@@ -151,5 +152,5 @@ def index():
 # Main
 # -----------------------------
 if __name__ == "__main__":
-    # Local testing only. In Render, use: gunicorn app:app
+    # Local testing only; in production use gunicorn/uwsgi
     app.run(host="0.0.0.0", port=5000, debug=True)
