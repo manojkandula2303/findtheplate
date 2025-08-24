@@ -35,7 +35,7 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
         resp = requests.post(
             "https://api.ocr.space/parse/image",
             files={"file": f},
-            data={
+            json={
                 "apikey": api_key,
                 "language": language,
                 "isOverlayRequired": "false",
