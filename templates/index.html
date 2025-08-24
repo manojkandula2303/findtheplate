@@ -40,7 +40,7 @@
 
       {% if image_path %}
         <p><strong>Uploaded Image:</strong></p>
-        <img src="{{ '/' + image_path }}" alt="Uploaded Image">
+        <img src="{{ url_for('static', filename='uploads/' + image_path.split('/')[-1]) }}">
       {% endif %}
 
       {% if google_drive_url %}
