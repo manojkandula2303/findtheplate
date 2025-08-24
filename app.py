@@ -61,11 +61,6 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
 
 
 def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
-    """
-    Sends base64 image + plate number to your Google Apps Script web app.
-    Your Apps Script expects JSON with keys: 'image' (base64) and 'plate_number'.
-    Returns parsed JSON from the script (should include success flag and image_url).
-    """
     if not GOOGLE_SCRIPT_URL:
         raise RuntimeError("Google Script URL not set. Please set GOOGLE_SCRIPT_URL env var in Render.")
 
@@ -73,20 +68,20 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
         img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
 
     payload = {
-        "image": img_b64,          # your script reads data.image
-        "plate_number": plate_number,  # your script reads data.plate_number
+        "imageBase64": img_b64,       # FIXED
+        "plateNumber": plate_number   # FIXED
     }
 
-    resp = requests.post(GOOGLE_SCRIPT_URL, json=payload, timeout=90)
-    # Some Apps Script deployments return text/plain — try JSON decode safely
+    headers = {"Content-Type": "application/json"}
+    resp = requests.post(GOOGLE_SCRIPT_URL, json=payload, headers=headers, timeout=90)
+
     try:
         data = resp.json()
     except Exception:
-        # Fallback if Apps Script returned plain text
-        data = {"success": resp.ok, "raw": resp.text}
+        data = {"status": "error", "raw": resp.text}
 
     if not resp.ok:
-        return {"success": False, "error": f"HTTP {resp.status_code}", "raw": data}
+        return {"status": "error", "error": f"HTTP {resp.status_code}", "raw": data}
 
     return data
 
