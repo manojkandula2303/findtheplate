@@ -73,7 +73,13 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
     }
 
     headers = {"Content-Type": "application/json"}
-    resp = requests.post(GOOGLE_SCRIPT_URL, json=payload, headers=headers, timeout=90)
+    resp = requests.post(
+        GOOGLE_SCRIPT_URL,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=90
+    )
+
 
     # Parse response as JSON if possible
     try:
