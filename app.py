@@ -14,8 +14,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Set these in your environment
-OCR_API_KEY = os.getenv("OCR_API_KEY", "").strip()
-GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "").strip()
+OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
+GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbxI91eW3bGkW3YaoWv1-H3hbM1-wGBOCIiFxLNhQ6RLX3r5vZWpG26d4kVgDqCEgzfV/exec").strip()
 
 # -----------------------------
 # Helpers
