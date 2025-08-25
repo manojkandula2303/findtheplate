@@ -1,52 +1,72 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Panel Number OCR</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>Number Plate Recognition</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
-    .wrap { max-width: 820px; margin: 0 auto; }
-    .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
-    .result img { max-width: 320px; height: auto; border: 1px solid #ddd; border-radius: 8px; }
-    .muted { color: #6b7280; }
-    .success { color: #065f46; }
-    .error { color: #b91c1c; }
-    button { padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .preview { margin-top: 15px; }
+    img { max-width: 300px; margin: 10px 0; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Panel Number Extractor</h1>
-    <p class="muted">Upload an image to extract the panel number using OCR.Space.</p>
+  <h2>Upload Image</h2>
+  <form id="uploadForm">
+    <input type="file" name="file" required>
+    <button type="submit">Upload</button>
+  </form>
 
-    <div class="card">
-      <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required />
-        <button type="submit">Upload & Extract</button>
-      </form>
+  <div class="preview">
+    <h3>Results:</h3>
+    <p id="plate"></p>
+    <div>
+      <strong>Local Uploaded Image:</strong><br>
+      <img id="localImg" src="" alt="Local Preview" hidden>
     </div>
-
-    <div class="card result" style="margin-top:16px;">
-      {% if error_message %}
-        <p class="error">{{ error_message }}</p>
-      {% endif %}
-
-      {% if plate_number %}
-        <h3>Detected Panel Number: <span class="success">{{ plate_number }}</span></h3>
-      {% endif %}
-
-      {% if image_path %}
-        <p><strong>Uploaded Image:</strong></p>
-        <img src="{{ url_for('static', filename='uploads/' + image_path.split('/')[-1]) }}">
-      {% endif %}
-
-      {% if google_drive_url %}
-        <p><a href="{{ google_drive_url }}" target="_blank" rel="noopener">View on Google Drive</a></p>
-      {% endif %}
+    <div>
+      <strong>Google Drive Image:</strong><br>
+      <img id="driveImg" src="" alt="Drive Preview" hidden>
     </div>
+    <p>
+      <a id="sheetLink" href="#" target="_blank" hidden>View in Google Sheet</a>
+    </p>
   </div>
+
+  <script>
+    document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.error) {
+        alert("Error: " + data.error);
+        return;
+      }
+
+      // Show plate number
+      document.getElementById("plate").innerText = "Detected Plate: " + data.plateNumber;
+
+      // Show local uploaded image
+      const localImg = document.getElementById("localImg");
+      localImg.src = data.localImage;
+      localImg.hidden = false;
+
+      // Show Drive uploaded image
+      if (data.googleResult && data.googleResult.imageUrl) {
+        const driveImg = document.getElementById("driveImg");
+        driveImg.src = data.googleResult.imageUrl;
+        driveImg.hidden = false;
+      }
+
+      // Show Google Sheet row link
+      if (data.googleResult && data.googleResult.rowUrl) {
+        const sheetLink = document.getElementById("sheetLink");
+        sheetLink.href = data.googleResult.rowUrl;
+        sheetLink.hidden = false;
+      }
+    });
+  </script>
 </body>
 </html>
