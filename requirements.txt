@@ -1,4 +1,9 @@
-
-Flask>=2.2
-requests>=2.31
-gunicorn>=21.2
+Flask
+opencv-python
+pytesseract
+numpy
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+requests
