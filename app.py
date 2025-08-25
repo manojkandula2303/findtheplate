@@ -38,7 +38,7 @@ DRIVE_FOLDER_ID = '1HTPMqzuLBXQHU79lDlQCVmkm_6ad-n6l' # ← your folder ID
 
 
 # 4) Deployed Google Apps Script Web App URL (to log rows into Sheets)
-APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/PASTE_YOUR_DEPLOYMENT_ID/exec' # ← replace!
+APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyVYgr8yC0p93bKE4l57JHNsDVQyBOXkRD1VyRBMIcei2PT7MxLi4DLTZSoM8OmGz6a/exec' # ← replace!
 
 
 # 5) (Optional) Sheet URL to show users (purely for UI convenience)
