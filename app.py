@@ -15,7 +15,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Set these in your environment
 OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
-GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbxI91eW3bGkW3YaoWv1-H3hbM1-wGBOCIiFxLNhQ6RLX3r5vZWpG26d4kVgDqCEgzfV/exec").strip()
+GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbz-dcG1KESQRZoPAMdcbDFmkrTrLbHny9_jZGK5kNnnyqj9QBYbIAv-BKKRiBdTWyq6/exec").strip()
 
 # -----------------------------
 # Helpers
@@ -68,9 +68,11 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
         img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
 
     payload = {
-        "imageBase64": img_b64,     # matches Apps Script
-        "plateNumber": plate_number # matches Apps Script
+        "plateNumber": plate_number,
+        "imageBase64": img_b64
     }
+
+
 
     headers = {"Content-Type": "application/json"}
     resp = requests.post(
