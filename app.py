@@ -1,7 +1,7 @@
 import os
 import base64
 import requests
-from flask import Flask, render_template, request, url_for
+from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
 # -----------------------------
@@ -15,7 +15,10 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Set these in your environment
 OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
-GOOGLE_SCRIPT_URL = os.getenv("GOOGLE_SCRIPT_URL", "https://script.google.com/macros/s/AKfycbz-dcG1KESQRZoPAMdcbDFmkrTrLbHny9_jZGK5kNnnyqj9QBYbIAv-BKKRiBdTWyq6/exec").strip()
+GOOGLE_SCRIPT_URL = os.getenv(
+    "GOOGLE_SCRIPT_URL",
+    "https://script.google.com/macros/s/AKfycbz-dcG1KESQRZoPAMdcbDFmkrTrLbHny9_jZGK5kNnnyqj9QBYbIAv-BKKRiBdTWyq6/exec"
+).strip()
 
 # -----------------------------
 # Helpers
@@ -29,7 +32,6 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
         raise RuntimeError("OCR_API_KEY is not set.")
 
     with open(file_path, "rb") as f:
-        # IMPORTANT: OCR.Space expects multipart/form-data with fields in 'data', not JSON
         resp = requests.post(
             "https://api.ocr.space/parse/image",
             files={"file": f},
@@ -42,7 +44,6 @@ def ocr_space_parse_image(file_path: str, api_key: str, language: str = "eng") -
             timeout=90,
         )
 
-    # Will raise for 4xx/5xx (e.g., 403 if key invalid/quota exceeded)
     resp.raise_for_status()
     data = resp.json()
 
@@ -69,12 +70,10 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
 
     payload = {
         "plateNumber": plate_number,
-        "imageBase64": img_b64
+        "fileName": os.path.basename(image_path),  # ✅ added filename
+        "base64Image": img_b64
     }
 
-
-
-    headers = {"Content-Type": "application/json"}
     resp = requests.post(
         GOOGLE_SCRIPT_URL,
         json=payload,
@@ -82,14 +81,11 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
         timeout=90
     )
 
-
-    # Parse response as JSON if possible
     try:
         data = resp.json()
     except Exception:
         data = {"status": "error", "raw": resp.text}
 
-    # If HTTP not OK, surface error
     if not resp.ok:
         return {"status": "error", "error": f"HTTP {resp.status_code}", "raw": data}
 
@@ -109,29 +105,29 @@ def upload_file():
         return jsonify({"error": "No selected file"}), 400
 
     # Save file locally
-    filename = os.path.join(UPLOAD_FOLDER, file.filename)
+    filename = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
     file.save(filename)
 
-    # Run OCR
-    plate_number = extract_text(filename)
+    # ✅ Run OCR
+    try:
+        plate_number = ocr_space_parse_image(filename, OCR_API_KEY)
+    except Exception as e:
+        return jsonify({"error": f"OCR failed: {e}"}), 500
 
-    # Send to Google Apps Script
+    # ✅ Send to Google Apps Script
     try:
         resp = send_to_google_drive_and_sheet(plate_number, filename)
     except Exception as e:
-        return jsonify({"error": f"Drive upload failed: {e}"}), 500
+        return jsonify({"error": f"Drive/Sheet upload failed: {e}"}), 500
 
-    # ✅ Forward both OCR result + Google Sheet response
     return jsonify({
         "plate_number": plate_number,
         "google_response": resp
     })
 
 
-
 # -----------------------------
 # Main
 # -----------------------------
 if __name__ == "__main__":
-    # Local testing only; in production use gunicorn/uwsgi
     app.run(host="0.0.0.0", port=5000, debug=True)
