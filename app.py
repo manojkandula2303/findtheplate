@@ -17,7 +17,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 OCR_API_KEY = os.getenv("OCR_API_KEY", "K89643438588957").strip()
 GOOGLE_SCRIPT_URL = os.getenv(
     "GOOGLE_SCRIPT_URL",
-    "https://script.google.com/macros/s/AKfycbz-dcG1KESQRZoPAMdcbDFmkrTrLbHny9_jZGK5kNnnyqj9QBYbIAv-BKKRiBdTWyq6/exec"
+    "https://script.google.com/macros/s/AKfycbwg5seJtip6DR_jRXg-0ovH7XeFVntwKoYz3vOkqult-PfEVoBy_C6fEF76CQtuVun9/exec"
 ).strip()
 
 # -----------------------------
