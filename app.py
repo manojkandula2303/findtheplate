@@ -99,61 +99,34 @@ def send_to_google_drive_and_sheet(plate_number: str, image_path: str) -> dict:
 # -----------------------------
 # Routes
 # -----------------------------
-@app.route("/", methods=["GET", "POST"])
-def index():
-    error_message = ""
-    plate_number = ""
-    image_url = ""
-    google_drive_url = ""
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    if request.method == "POST":
-        f = request.files.get("image")
-        if not f or not f.filename:
-            error_message = "No image selected."
-            return render_template(
-                "index.html",
-                error_message=error_message,
-                plate_number=plate_number,
-                image_url=image_url,
-                google_drive_url=google_drive_url,
-            )
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
-        # Save uploaded file
-        filename = secure_filename(f.filename)
-        saved_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        f.save(saved_path)
+    # Save file locally
+    filename = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filename)
 
-        # Public URL (served by Flask static)
-        image_url = url_for("static", filename=f"uploads/{filename}")
+    # Run OCR
+    plate_number = extract_text(filename)
 
-        # --- OCR ---
-        try:
-            plate_number = ocr_space_parse_image(saved_path, OCR_API_KEY)
-            if not plate_number:
-                plate_number = "Not Detected"
-        except Exception as ocr_err:
-            plate_number = "Not Detected"
-            error_message = f"OCR failed: {ocr_err}"
+    # Send to Google Apps Script
+    try:
+        resp = send_to_google_drive_and_sheet(plate_number, filename)
+    except Exception as e:
+        return jsonify({"error": f"Drive upload failed: {e}"}), 500
 
-        # --- Google Drive + Sheet ---
-        try:
-            result = send_to_google_drive_and_sheet(plate_number, saved_path)
-            # Expecting { status: 'success', imageUrl, ... }
-            if result.get("status") == "success":
-                google_drive_url = result.get("imageUrl") or ""
-            else:
-                script_err = result.get("error") or result.get("message") or result.get("raw") or "Unknown error from Apps Script"
-                error_message = (error_message + (" | " if error_message else "") + f"Drive upload failed: {script_err}")
-        except Exception as drive_err:
-            error_message = (error_message + (" | " if error_message else "") + f"Drive upload failed: {drive_err}")
+    # ✅ Forward both OCR result + Google Sheet response
+    return jsonify({
+        "plate_number": plate_number,
+        "google_response": resp
+    })
 
-    return render_template(
-        "index.html",
-        error_message=error_message,
-        plate_number=plate_number,
-        image_url=image_url,
-        google_drive_url=google_drive_url,
-    )
 
 
 # -----------------------------
